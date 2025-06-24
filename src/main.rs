@@ -1,10 +1,10 @@
-#![allow(dead_code)] // Remove once the implementation looks OK
-
+use clap::Parser;
 use rand::seq::IndexedRandom;
-use std::{collections::HashSet, env, error::Error, fmt::Display};
+use std::collections::HashSet;
+use std::fmt::Display;
 
 #[derive(Debug)]
-enum TermColor {
+pub enum TermColor {
     Black,
     Blue,
     Cyan,
@@ -24,8 +24,8 @@ enum TermColor {
 }
 
 impl TermColor {
-    fn to_str(&self) -> &'static str {
-        match *self {
+    fn to_str(&self) -> &str {
+        match self {
             Self::Black => "\x1B3[30m",
             Self::Blue => "\x1B[34m",
             Self::Cyan => "\x1B[36m",
@@ -58,8 +58,7 @@ fn nth_odd(n: usize) -> usize {
     n * 2 + 1
 }
 
-fn leaves_with_lights(leaf: char, leaf_count: usize, colors: &[TermColor]) -> String {
-    let percent = 0.50; // TODO: customize
+fn leaves_with_lights(leaf: char, leaf_count: usize, colors: &[TermColor], percent: f64) -> String {
     let light_count = (leaf_count as f64 * percent).floor() as usize;
 
     let mut rng = rand::rng();
@@ -85,36 +84,54 @@ fn leaves_with_lights(leaf: char, leaf_count: usize, colors: &[TermColor]) -> St
     buf
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let levels: usize = match env::args().skip(1).next() {
-        Some(arg) => arg.parse()?,
-        None => 5,
-    };
+#[derive(Parser)]
+struct Cli {
+    /// Number of leaf rows
+    #[arg(short, long, default_value_t = 5)]
+    level: usize,
 
-    let leaf = '@'; // TODO: customize
-    let padding = nth_odd(levels) / 2 + 1;
+    /// Character to use for leaves and lights
+    #[arg(short, long, default_value_t = '@')]
+    char: char,
+
+    /// Percent of leaves to replace with lights (0 for no lights)
+    #[arg(short, long, default_value_t = 50, value_parser = clap::value_parser!(u8).range(0..=100))]
+    percent: u8,
+}
+
+fn main() {
+    let cli = Cli::parse();
+
+    let padding = nth_odd(cli.level) / 2;
     let colors = [
         TermColor::Yellow,
         TermColor::Red,
         TermColor::Blue,
         TermColor::Magenta,
         TermColor::Cyan,
+        TermColor::White,
     ];
 
-    println!("{}{:>padding$}{RESET}", TermColor::LightYellow, "*");
+    println!(
+        "{color}{star:>padding$}{RESET}",
+        color = TermColor::LightYellow,
+        star = '*',
+        padding = padding + 1
+    );
 
-    for count in (1..=levels).map(nth_odd) {
-        let leftpad = " ".repeat(padding - (count / 2 + 1));
-        let leaves = leaves_with_lights(leaf, count, &colors[..]);
+    let percent = cli.percent as f64 / 100.0;
+    for count in (1..=cli.level).map(nth_odd) {
+        let leftpad = " ".repeat(padding - (count / 2));
+        let leaves = leaves_with_lights(cli.char, count, &colors[..], percent);
         println!("{leftpad}{leaves}{RESET}");
     }
 
-    {
-        let brown = "\x1B[38;2;222;119;51m";
-        for _ in 0..(levels / 5).max(1) {
-            println!("{brown}{:>padding$}{RESET}", "|");
-        }
+    for _ in 0..(cli.level / 5).max(1) {
+        println!(
+            // RGB for brown
+            "\x1B[38;2;222;119;51m{trunc:>padding$}{RESET}",
+            trunc = '|',
+            padding = padding + 1,
+        );
     }
-
-    Ok(())
 }
