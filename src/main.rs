@@ -102,7 +102,7 @@ struct Cli {
 fn main() {
     let cli = Cli::parse();
 
-    let padding = nth_odd(cli.level) / 2;
+    let max_padding = nth_odd(cli.level) / 2;
     let colors = [
         TermColor::Yellow,
         TermColor::Red,
@@ -116,14 +116,18 @@ fn main() {
         "{color}{star:>padding$}{RESET}",
         color = TermColor::LightYellow,
         star = '*',
-        padding = padding + 1
+        padding = max_padding + 1
     );
 
-    let percent = cli.percent as f64 / 100.0;
-    for count in (1..=cli.level).map(nth_odd) {
-        let leftpad = " ".repeat(padding - (count / 2));
-        let leaves = leaves_with_lights(cli.char, count, &colors[..], percent);
-        println!("{leftpad}{leaves}{RESET}");
+    {
+        let percent = cli.percent as f64 / 100.0;
+        let spaces = " ".repeat(max_padding);
+
+        for count in (1..=cli.level).map(nth_odd) {
+            let padding = &spaces[..max_padding - count / 2];
+            let leaves = leaves_with_lights(cli.char, count, &colors[..], percent);
+            println!("{padding}{leaves}{RESET}");
+        }
     }
 
     for _ in 0..(cli.level / 5).max(1) {
@@ -131,7 +135,7 @@ fn main() {
             // RGB for brown
             "\x1B[38;2;222;119;51m{trunc:>padding$}{RESET}",
             trunc = '|',
-            padding = padding + 1,
+            padding = max_padding + 1,
         );
     }
 }
