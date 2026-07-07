@@ -24,7 +24,7 @@ pub enum TermColor {
 }
 
 impl TermColor {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &'static str {
         match self {
             Self::Black => "\x1B3[30m",
             Self::Blue => "\x1B[34m",
@@ -48,15 +48,11 @@ impl TermColor {
 
 impl Display for TermColor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.to_str())
+        f.write_str(self.as_str())
     }
 }
 
 const RESET: &str = "\x1B[0m";
-
-fn nth_odd(n: usize) -> usize {
-    n * 2 + 1
-}
 
 fn leaves_with_lights(leaf: char, leaf_count: usize, colors: &[TermColor], percent: f64) -> String {
     let light_count = (leaf_count as f64 * percent).floor() as usize;
@@ -66,19 +62,20 @@ fn leaves_with_lights(leaf: char, leaf_count: usize, colors: &[TermColor], perce
         .iter()
         .collect::<HashSet<_>>();
 
-    let green = TermColor::Green.to_str();
-    let mut buf = String::from(green);
+    let green = TermColor::Green.as_str();
+    let mut buf = String::with_capacity(green.len() + leaf_count);
+    buf.push_str(green);
 
     for i in 0..leaf_count {
-        if indices.contains(&i) {
-            if let Some(color) = colors.choose(&mut rng) {
-                buf.push_str(color.to_str());
-                buf.push(leaf);
-                buf.push_str(green);
-                continue;
-            }
+        if indices.contains(&i)
+            && let Some(color) = colors.choose(&mut rng)
+        {
+            buf.push_str(color.as_str());
+            buf.push(leaf);
+            buf.push_str(green);
+        } else {
+            buf.push(leaf);
         }
-        buf.push(leaf);
     }
 
     buf
@@ -102,7 +99,6 @@ struct Cli {
 fn main() {
     let cli = Cli::parse();
 
-    let max_padding = nth_odd(cli.level) / 2;
     let colors = [
         TermColor::Yellow,
         TermColor::Red,
@@ -116,15 +112,15 @@ fn main() {
         "{color}{star:>padding$}{RESET}",
         color = TermColor::LightYellow,
         star = '*',
-        padding = max_padding + 1
+        padding = cli.level + 1
     );
 
     {
-        let percent = cli.percent as f64 / 100.0;
-        let spaces = " ".repeat(max_padding);
+        let percent = f64::from(cli.percent) / 100.0;
+        let spaces = " ".repeat(cli.level);
 
-        for count in (1..=cli.level).map(nth_odd) {
-            let padding = &spaces[..max_padding - count / 2];
+        for count in (1..=cli.level).map(|n| n * 2 + 1) {
+            let padding = &spaces[..cli.level - count / 2];
             let leaves = leaves_with_lights(cli.char, count, &colors[..], percent);
             println!("{padding}{leaves}{RESET}");
         }
@@ -135,7 +131,7 @@ fn main() {
             // RGB for brown
             "\x1B[38;2;222;119;51m{trunc:>padding$}{RESET}",
             trunc = '|',
-            padding = max_padding + 1,
+            padding = cli.level + 1,
         );
     }
 }
